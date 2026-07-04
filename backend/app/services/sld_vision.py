@@ -64,7 +64,11 @@ def extract_sld_assets(sld_pdf_path: str | Path | None = None, sld_extract_path:
         try:
             return analyze_sld_pdf_with_gemini(pdf_path)
         except Exception as e:
+            if config.GEMINI_STRICT_MODE or not config.USE_DEMO_SLD_EXTRACT:
+                raise RuntimeError(f"Gemini visual extraction failed and fallback is disabled: {e}") from e
             print(f"Gemini visual extraction failed: {e}. Falling back to demo CSV.")
             return load_demo_sld_extract(extract_path)
+    if config.GEMINI_STRICT_MODE or not config.USE_DEMO_SLD_EXTRACT:
+        raise RuntimeError("Gemini visual extraction is required, but USE_GEMINI or GOOGLE_API_KEY is not configured.")
     else:
         return load_demo_sld_extract(extract_path)

@@ -3,8 +3,8 @@ steps:
   args: [
     'build',
     '--build-arg', 'NEXT_PUBLIC_API_BASE_URL=$_NEXT_PUBLIC_API_BASE_URL',
-    '-t', 'gcr.io/$PROJECT_ID/singlelineiq-frontend',
+    '-t', 'gcr.io/$PROJECT_ID/singlelineiq-frontend:agentic',
     '.'
   ]
 images:
-- 'gcr.io/$PROJECT_ID/singlelineiq-frontend'
+- 'gcr.io/$PROJECT_ID/singlelineiq-frontend:agentic'

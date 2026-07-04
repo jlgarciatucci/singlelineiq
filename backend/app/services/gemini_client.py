@@ -1,5 +1,6 @@
 import base64
 import json
+import time
 import httpx
 from app import config
 
@@ -16,7 +17,7 @@ def extract_assets_from_pdf(pdf_path: str) -> list[dict]:
         
     pdf_base64 = base64.b64encode(pdf_bytes).decode("utf-8")
     
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={config.GOOGLE_API_KEY}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{config.GEMINI_MODEL}:generateContent?key={config.GOOGLE_API_KEY}"
     
     prompt = """
     Analyze the attached electrical Single Line Diagram (SLD) PDF.
@@ -74,7 +75,20 @@ def extract_assets_from_pdf(pdf_path: str) -> list[dict]:
     
     headers = {"Content-Type": "application/json"}
     
-    response = httpx.post(url, json=payload, headers=headers, timeout=60.0)
+    response = None
+    last_error = None
+    for attempt in range(2):
+        try:
+            response = httpx.post(url, json=payload, headers=headers, timeout=config.GEMINI_TIMEOUT_SECONDS)
+            break
+        except httpx.ReadTimeout as e:
+            last_error = e
+            if attempt == 0:
+                time.sleep(2)
+                continue
+            raise
+    if response is None:
+        raise RuntimeError(f"Gemini request failed: {last_error}")
     response.raise_for_status()
     
     res_json = response.json()

@@ -17,6 +17,8 @@ from app.services.deterministic_validator import validate
 from app.services.sld_vision import extract_sld_assets
 from app.services.cross_checker import cross_check_sld
 from app.services.report_generator import generate_markdown_report
+from app.services.gemini_smoke_test import run_gemini_smoke_test
+from app.agents.orchestrator_agent import AGENTIC_CAPABILITIES, SingleLineReviewOrchestrator
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -55,39 +57,33 @@ def run_pipeline(
     cl_path = consumer_list_path or config.CONSUMER_LIST_FILE
     cr_path = criteria_path or config.DESIGN_CRITERIA_FILE
     sld_path = sld_pdf_path or config.SLD_PDF_FILE
+    effective_is_demo = is_demo or (consumer_list_path is None and sld_pdf_path is None)
 
-    items = parse_consumer_list(cl_path)
-    criteria = parse_design_criteria(cr_path)
-    topology = build_topology(items)
-    nodes = calculate_loads(topology)
-    deterministic_issues = validate(items, topology, nodes, criteria)
-    sld_assets = extract_sld_assets(sld_pdf_path=sld_path)
-    sld_cross_check_issues = cross_check_sld(nodes, sld_assets)
-    kpis = {
-        "electrical_assets": sum(1 for i in items if i.asset_role == "ELECTRICAL_ASSET"),
-        "final_loads": sum(1 for i in items if i.asset_role == "FINAL_LOAD"),
-        "total_connected_load_kw": round(sum((i.rated_power_kw or 0.0) for i in items if i.asset_role == "FINAL_LOAD"), 3),
-        "nodes": len(nodes),
-        "edges": len(topology["edges"]),
-        "roots": topology["roots"],
-        "missing_parents": topology["missing_parents"],
-        "cycles": topology["cycles"],
-        "deterministic_issues": len(deterministic_issues),
-        "sld_cross_check_issues": len(sld_cross_check_issues),
+    orchestrator = SingleLineReviewOrchestrator()
+    return orchestrator.run(
+        consumer_list_path=cl_path,
+        sld_pdf_path=sld_path,
+        criteria_path=cr_path,
+        is_demo=effective_is_demo,
+        input_filenames=input_filenames,
+    )
+
+
+def _serialize_analysis(r: dict, session_id: str | None = None) -> dict:
+    data = {
+        "kpis": r["kpis"],
+        "nodes": [n.model_dump() for n in r["nodes"]],
+        "edges": [e.model_dump() for e in r["edges"]],
+        "deterministic_issues": [i.model_dump() for i in r["deterministic_issues"]],
+        "sld_cross_check_issues": [i.model_dump() for i in r["sld_cross_check_issues"]],
+        "sld_assets": [a.model_dump() for a in r["sld_assets"]],
+        "agent_trace": r["agent_trace"],
+        "agentic_capabilities": r["agentic_capabilities"],
+        "cached": r.get("cached", False),
     }
-    return {
-        "items": items,
-        "topology": topology,
-        "nodes": nodes,
-        "edges": topology["edges"],
-        "criteria": criteria,
-        "sld_assets": sld_assets,
-        "deterministic_issues": deterministic_issues,
-        "sld_cross_check_issues": sld_cross_check_issues,
-        "kpis": kpis,
-        "is_demo": is_demo,
-        "input_filenames": input_filenames or {},
-    }
+    if session_id:
+        data["session_id"] = session_id
+    return data
 
 
 # ---------------------------------------------------------------------------
@@ -164,23 +160,24 @@ async def upload_files(files: list[UploadFile] = File(...)):
 # Analyze endpoint (primary — uses uploaded files)
 # ---------------------------------------------------------------------------
 @app.post("/api/analyze")
-def analyze(session_id: str = Query(...)):
+def analyze(session_id: str = Query(...), force: bool = Query(False)):
     sess = _get_session(session_id)
-    r = run_pipeline(
-        consumer_list_path=sess["consumer_list_path"],
-        sld_pdf_path=sess["sld_pdf_path"],
-        is_demo=False,
-        input_filenames=sess["filenames"],
-    )
-    return {
-        "kpis": r["kpis"],
-        "nodes": [n.model_dump() for n in r["nodes"]],
-        "edges": [e.model_dump() for e in r["edges"]],
-        "deterministic_issues": [i.model_dump() for i in r["deterministic_issues"]],
-        "sld_cross_check_issues": [i.model_dump() for i in r["sld_cross_check_issues"]],
-        "sld_assets": [a.model_dump() for a in r["sld_assets"]],
-        "session_id": session_id,
-    }
+    if not force and "analysis_result" in sess:
+        cached = sess["analysis_result"].copy()
+        cached["cached"] = True
+        return _serialize_analysis(cached, session_id=session_id)
+
+    try:
+        r = run_pipeline(
+            consumer_list_path=sess["consumer_list_path"],
+            sld_pdf_path=sess["sld_pdf_path"],
+            is_demo=False,
+            input_filenames=sess["filenames"],
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {e}") from e
+    sess["analysis_result"] = r
+    return _serialize_analysis(r, session_id=session_id)
 
 
 # ---------------------------------------------------------------------------
@@ -189,6 +186,42 @@ def analyze(session_id: str = Query(...)):
 @app.get("/health")
 def health():
     return {"status": "ok", "app": config.APP_NAME}
+
+
+@app.get("/api/agent/architecture")
+def agent_architecture():
+    return {
+        "orchestrator": "singleline_review_orchestrator",
+        "agents": [
+            "intake_agent",
+            "topology_agent",
+            "calculation_agent",
+            "sld_review_agent",
+            "reasoning_agent",
+            "report_review_agent",
+        ],
+        "capabilities": AGENTIC_CAPABILITIES,
+    }
+
+
+@app.get("/api/agent/runtime-status")
+def agent_runtime_status():
+    return {
+        "use_gemini": config.USE_GEMINI,
+        "gemini_strict_mode": config.GEMINI_STRICT_MODE,
+        "use_demo_sld_extract": config.USE_DEMO_SLD_EXTRACT,
+        "gemini_model": config.GEMINI_MODEL,
+        "google_api_key_configured": bool(config.GOOGLE_API_KEY),
+        "google_api_key_suffix": config.GOOGLE_API_KEY[-4:] if config.GOOGLE_API_KEY else None,
+    }
+
+
+@app.get("/api/agent/gemini-smoke-test")
+def gemini_smoke_test():
+    try:
+        return run_gemini_smoke_test()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ---------------------------------------------------------------------------
@@ -203,14 +236,42 @@ def demo_run():
             "sld_pdf": config.SLD_PDF_FILE.name,
         },
     )
+    return _serialize_analysis(r)
+
+
+@app.get("/api/consumer-list")
+def consumer_list():
+    r = run_pipeline(is_demo=True)
+    return [i.model_dump() for i in r["items"]]
+
+
+@app.get("/api/topology")
+def topology():
+    r = run_pipeline(is_demo=True)
     return {
-        "kpis": r["kpis"],
         "nodes": [n.model_dump() for n in r["nodes"]],
         "edges": [e.model_dump() for e in r["edges"]],
-        "deterministic_issues": [i.model_dump() for i in r["deterministic_issues"]],
-        "sld_cross_check_issues": [i.model_dump() for i in r["sld_cross_check_issues"]],
-        "sld_assets": [a.model_dump() for a in r["sld_assets"]],
+        "kpis": r["kpis"],
+        "agent_trace": r["agent_trace"],
     }
+
+
+@app.get("/api/load-summary")
+def load_summary():
+    r = run_pipeline(is_demo=True)
+    return [n.model_dump() for n in r["nodes"] if n.asset_role == "ELECTRICAL_ASSET"]
+
+
+@app.get("/api/issues/deterministic")
+def deterministic_issues():
+    r = run_pipeline(is_demo=True)
+    return [i.model_dump() for i in r["deterministic_issues"]]
+
+
+@app.get("/api/sld/cross-check")
+def sld_cross_check():
+    r = run_pipeline(is_demo=True)
+    return [i.model_dump() for i in r["sld_cross_check_issues"]]
 
 
 # ---------------------------------------------------------------------------
@@ -231,7 +292,7 @@ def sld_pdf(session_id: str | None = Query(None)):
 # ---------------------------------------------------------------------------
 # Reports (session-aware)
 # ---------------------------------------------------------------------------
-from app.agents.reasoning_agent import explain_issues
+from app.agents.reasoning_agent import explain_issues, generate_fallback_explanations
 from app.agents.report_review_agent import review_report
 from app.services.pdf_generator import generate_enriched_pdf_report
 
@@ -240,12 +301,19 @@ def _run_pipeline_for_session(session_id: str | None) -> dict:
     """Helper: run pipeline for a session or fall back to demo data."""
     if session_id:
         sess = _get_session(session_id)
-        return run_pipeline(
-            consumer_list_path=sess["consumer_list_path"],
-            sld_pdf_path=sess["sld_pdf_path"],
-            is_demo=False,
-            input_filenames=sess["filenames"],
-        )
+        if "analysis_result" in sess:
+            return sess["analysis_result"]
+        try:
+            r = run_pipeline(
+                consumer_list_path=sess["consumer_list_path"],
+                sld_pdf_path=sess["sld_pdf_path"],
+                is_demo=False,
+                input_filenames=sess["filenames"],
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Analysis failed: {e}") from e
+        sess["analysis_result"] = r
+        return r
     else:
         return run_pipeline(
             is_demo=True,
@@ -258,9 +326,17 @@ def _run_pipeline_for_session(session_id: str | None) -> dict:
 
 @app.get("/api/report/pdf")
 def report_pdf(session_id: str | None = Query(None)):
+    if session_id:
+        sess = _get_session(session_id)
+        if "report_pdf" in sess:
+            return StreamingResponse(
+                io.BytesIO(sess["report_pdf"]),
+                media_type="application/pdf",
+                headers={"Content-Disposition": "attachment; filename=singlelineiq_report.pdf"}
+            )
     r = _run_pipeline_for_session(session_id)
     all_issues = r["deterministic_issues"] + r["sld_cross_check_issues"]
-    explanations = explain_issues(all_issues, r["kpis"], r["nodes"])
+    explanations = generate_fallback_explanations(all_issues)
     pdf_bytes = generate_enriched_pdf_report(
         r["kpis"],
         r["nodes"],
@@ -270,6 +346,8 @@ def report_pdf(session_id: str | None = Query(None)):
         input_filenames=r["input_filenames"],
         is_demo=r["is_demo"],
     )
+    if session_id:
+        _get_session(session_id)["report_pdf"] = pdf_bytes
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
@@ -279,9 +357,13 @@ def report_pdf(session_id: str | None = Query(None)):
 
 @app.get("/api/report/markdown", response_class=PlainTextResponse)
 def report_markdown(session_id: str | None = Query(None)):
+    if session_id:
+        sess = _get_session(session_id)
+        if "report_markdown" in sess:
+            return sess["report_markdown"]
     r = _run_pipeline_for_session(session_id)
     all_issues = r["deterministic_issues"] + r["sld_cross_check_issues"]
-    explanations = explain_issues(all_issues, r["kpis"], r["nodes"])
+    explanations = generate_fallback_explanations(all_issues)
     report = generate_markdown_report(
         r["kpis"],
         r["nodes"],
@@ -291,7 +373,9 @@ def report_markdown(session_id: str | None = Query(None)):
         input_filenames=r["input_filenames"],
         is_demo=r["is_demo"],
     )
-    reviewed = review_report(report)
+    reviewed = report + "\n\n*Note: Report generated from the completed agentic analysis trace and deterministic evidence objects.*"
+    if session_id:
+        _get_session(session_id)["report_markdown"] = reviewed
     return reviewed
 
 

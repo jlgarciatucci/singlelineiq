@@ -4,6 +4,9 @@ import os
 APP_NAME = os.getenv("APP_NAME", "SingleLineIQ")
 USE_GEMINI = os.getenv("USE_GEMINI", "false").lower() == "true"
 USE_DEMO_SLD_EXTRACT = os.getenv("USE_DEMO_SLD_EXTRACT", "true").lower() == "true"
+GEMINI_STRICT_MODE = os.getenv("GEMINI_STRICT_MODE", "false").lower() == "true"
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
+GEMINI_TIMEOUT_SECONDS = float(os.getenv("GEMINI_TIMEOUT_SECONDS", "180"))
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]

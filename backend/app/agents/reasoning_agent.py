@@ -12,13 +12,17 @@ def explain_issues(issues: list[ValidationIssue], kpis: dict, nodes: list) -> li
         try:
             return call_gemini_to_explain(issues, kpis, nodes)
         except Exception as e:
+            if config.GEMINI_STRICT_MODE:
+                raise RuntimeError(f"Gemini reasoning failed in strict mode: {e}") from e
             print(f"Gemini reasoning failed: {e}. Falling back to templates.")
             return generate_fallback_explanations(issues)
+    if config.GEMINI_STRICT_MODE:
+        raise RuntimeError("Gemini reasoning is required, but USE_GEMINI or GOOGLE_API_KEY is not configured.")
     else:
         return generate_fallback_explanations(issues)
 
 def call_gemini_to_explain(issues: list[ValidationIssue], kpis: dict, nodes: list) -> list[dict]:
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={config.GOOGLE_API_KEY}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{config.GEMINI_MODEL}:generateContent?key={config.GOOGLE_API_KEY}"
     
     simplified_issues = []
     for i in issues:
@@ -78,7 +82,7 @@ def call_gemini_to_explain(issues: list[ValidationIssue], kpis: dict, nodes: lis
     
     headers = {"Content-Type": "application/json"}
     
-    response = httpx.post(url, json=payload, headers=headers, timeout=60.0)
+    response = httpx.post(url, json=payload, headers=headers, timeout=config.GEMINI_TIMEOUT_SECONDS)
     response.raise_for_status()
     res_json = response.json()
     text = res_json["candidates"][0]["content"]["parts"][0]["text"]

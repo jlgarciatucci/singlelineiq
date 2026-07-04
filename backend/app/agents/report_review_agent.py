@@ -11,13 +11,17 @@ def review_report(report_markdown: str) -> str:
         try:
             return call_gemini_to_review(report_markdown)
         except Exception as e:
+            if config.GEMINI_STRICT_MODE:
+                raise RuntimeError(f"Gemini report review failed in strict mode: {e}") from e
             print(f"Gemini report review failed: {e}. Returning original report.")
             return report_markdown + "\n\n*Note: Report reviewed by automated validation boundaries.*"
+    if config.GEMINI_STRICT_MODE:
+        raise RuntimeError("Gemini report review is required, but USE_GEMINI or GOOGLE_API_KEY is not configured.")
     else:
         return report_markdown + "\n\n*Note: Report reviewed by automated validation boundaries.*"
 
 def call_gemini_to_review(report_markdown: str) -> str:
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={config.GOOGLE_API_KEY}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{config.GEMINI_MODEL}:generateContent?key={config.GOOGLE_API_KEY}"
     prompt = f"""
     You are an expert lead electrical verification engineer.
     Review the following generated markdown report for spelling, structure, and professional tone.
@@ -35,7 +39,7 @@ def call_gemini_to_review(report_markdown: str) -> str:
         "contents": [{"parts": [{"text": prompt}]}]
     }
     headers = {"Content-Type": "application/json"}
-    response = httpx.post(url, json=payload, headers=headers, timeout=60.0)
+    response = httpx.post(url, json=payload, headers=headers, timeout=config.GEMINI_TIMEOUT_SECONDS)
     response.raise_for_status()
     res_json = response.json()
     return res_json["candidates"][0]["content"]["parts"][0]["text"]

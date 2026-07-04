@@ -26,13 +26,14 @@ def generate_markdown_report(
     is_demo: bool = False
 ) -> str:
     lines = []
+    effective_is_demo = is_demo or bool(kpis.get("synthetic_disclaimer"))
     
     # 1. Title
     lines.append("# SingleLineIQ Engineering Review Report")
     lines.append("")
     
     # 2. Disclaimer (conditional)
-    disclaimer = DISCLAIMER_DEMO if is_demo else DISCLAIMER_USER
+    disclaimer = DISCLAIMER_DEMO if effective_is_demo else DISCLAIMER_USER
     lines.append(f"> {disclaimer}")
     lines.append("")
     
@@ -44,6 +45,8 @@ def generate_markdown_report(
     lines.append(f"- **Total connected load**: {kpis.get('total_connected_load_kw', 0.0):.1f} kW")
     lines.append(f"- **Deterministic issues**: {len(deterministic)}")
     lines.append(f"- **SLD cross-check issues**: {len(sld_issues)}")
+    if kpis.get("agentic_mode"):
+        lines.append(f"- **Agentic workflow**: `{kpis.get('agentic_mode')}`")
     lines.append("")
     
     # 4. Input Files Reviewed

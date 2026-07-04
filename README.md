@@ -36,6 +36,24 @@ graph TD
     K --> L[Next.js Interactive Dashboard]
 ```
 
+## 🤖 Agentic Architecture
+
+SingleLineIQ uses a multi-agent orchestration layer around deterministic engineering tools:
+
+| Agent | Responsibility | Tool Boundary |
+| :--- | :--- | :--- |
+| `singleline_review_orchestrator` | Coordinates the end-to-end review and records the trace. | Calls the specialized agents in sequence. |
+| `intake_agent` | Reads and normalizes user deliverables. | `parse_consumer_list`, `parse_design_criteria` |
+| `topology_agent` | Infers the hierarchy from structured tags. | `build_topology` |
+| `calculation_agent` | Computes loads and deterministic findings. | `calculate_loads`, `validate` |
+| `sld_review_agent` | Performs visual SLD extraction/cross-checking. | `extract_sld_assets`, `cross_check_sld` |
+| `reasoning_agent` | Explains evidence-backed issues. | Gemini when enabled, deterministic templates otherwise. |
+| `report_review_agent` | Reviews/polishes the final report. | Gemini when enabled, bounded fallback otherwise. |
+
+The API exposes the architecture at `/api/agent/architecture`, and analysis responses include an `agent_trace`.
+
+Safety boundaries are intentionally strict: the consumer list is the structured source of truth, the SLD PDF is only a visual cross-check, Python calculations own numerical checks, and Gemini must not invent equipment tags, ratings, voltages, hierarchy, or issue IDs.
+
 ---
 
 ## ⚙️ Environment Variables

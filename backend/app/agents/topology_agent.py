@@ -1,6 +1,18 @@
-"""Agent placeholder for the SingleLineIQ ADK/Gemini orchestration layer.
+from __future__ import annotations
 
-The current MVP keeps engineering calculations deterministic in services/ and uses
-agents as thin orchestration boundaries. Wire Google ADK or Gemini tool-calling here
-when moving beyond the scaffold.
-"""
+from app.schemas import ConsumerItem
+from app.services.topology_inference import build_topology
+
+
+class TopologyAgent:
+    """Infers the electrical hierarchy from parent-child item tags."""
+
+    name = "topology_agent"
+    tools = ("build_topology",)
+    safety_rules = (
+        "Use ITEM TAG and PARENT ITEM TAG only for structured hierarchy.",
+        "Report missing parents and cycles instead of inventing upstream assets.",
+    )
+
+    def run(self, items: list[ConsumerItem]) -> dict:
+        return build_topology(items)
