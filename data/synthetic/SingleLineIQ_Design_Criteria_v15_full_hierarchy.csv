@@ -1,0 +1,7 @@
+CRITERION_ID,SCOPE,PARAMETER,VALUE,UNIT,DESCRIPTION
+C-001,ALL,consumer_list_source,full_hierarchy,text,"Consumer list includes upstream assets, panels and final loads."
+C-002,ALL,topology_key,ITEM TAG + PARENT ITEM TAG,text,Primary topology inference method.
+C-003,MCC,overload_threshold,1.00,p.u.,Downstream connected load must not exceed panel capacity.
+C-004,TRANSFORMER,overload_threshold,1.00,p.u.,Downstream connected load must not exceed transformer capacity.
+C-005,MCC,high_vsd_share_threshold,0.65,ratio,Flag panels where VSD final loads exceed this share.
+C-006,SLD,visual_cross_check,required,text,"SLD PDF is independent visual reference, not a topology CSV input."
