@@ -1,11 +1,16 @@
 'use client';
 
+import { Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import ReportViewer from '../../components/ReportViewer';
 import Link from 'next/link';
 
-export default function ReportPage() {
+function ReportContent() {
+  const searchParams = useSearchParams();
+  const sessionId = searchParams.get('session_id') || undefined;
+
   return (
-    <main className="container">
+    <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
         <h1>Engineering Analysis Report</h1>
       </div>
@@ -14,7 +19,17 @@ export default function ReportPage() {
           ← Back to Dashboard
         </Link>
       </p>
-      <ReportViewer />
+      <ReportViewer sessionId={sessionId} />
+    </>
+  );
+}
+
+export default function ReportPage() {
+  return (
+    <main className="container">
+      <Suspense fallback={<p className="muted">Loading report...</p>}>
+        <ReportContent />
+      </Suspense>
     </main>
   );
 }

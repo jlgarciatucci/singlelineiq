@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { getReport, API_BASE } from './api';
 
+interface ReportViewerProps {
+  sessionId?: string;
+}
+
 function parseMarkdownToHtml(md: string) {
   const lines = md.split('\n');
   const elements: React.ReactNode[] = [];
@@ -153,13 +157,13 @@ function parseMarkdownToHtml(md: string) {
   return elements;
 }
 
-export default function ReportViewer() {
+export default function ReportViewer({ sessionId }: ReportViewerProps) {
   const [report, setReport] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    getReport()
+    getReport(sessionId)
       .then(text => {
         setReport(text);
         setLoading(false);
@@ -168,14 +172,18 @@ export default function ReportViewer() {
         setError(err.message || 'Failed to fetch report');
         setLoading(false);
       });
-  }, []);
+  }, [sessionId]);
+
+  const pdfUrl = sessionId 
+    ? `${API_BASE}/api/report/pdf?session_id=${sessionId}` 
+    : `${API_BASE}/api/report/pdf`;
 
   return (
     <div className="card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <h2>Engineering Review Report</h2>
         <div style={{ display: 'flex', gap: 8 }}>
-          <a href={`${API_BASE}/api/report/pdf`} className="button" style={{ padding: '8px 14px', fontSize: 13, background: 'var(--accent)', color: '#00111a', textDecoration: 'none' }}>
+          <a href={pdfUrl} className="button" style={{ padding: '8px 14px', fontSize: 13, background: 'var(--accent)', color: '#00111a', textDecoration: 'none' }}>
             📄 Download PDF Report
           </a>
         </div>

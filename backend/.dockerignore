@@ -1,0 +1,25 @@
+# Local python virtual environment
+.venv/
+venv/
+
+# Caches and compilations
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.dockerignore
+
+# Test suite
+tests/
+
+# Environment files
+.env
+.env.*
+
+# Deploy guides and local docs
+cloudrun.md
+docker-compose*.yml
+
+# Logs
+*.log

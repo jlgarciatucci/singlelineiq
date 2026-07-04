@@ -1,9 +1,14 @@
 from __future__ import annotations
 from app.schemas import TopologyNode, ValidationIssue
 
-DISCLAIMER = (
+DISCLAIMER_DEMO = (
     "This report was generated from synthetic anonymized data for demonstration purposes only. "
     "It is not based on a real plant, project, client, or confidential engineering deliverable."
+)
+
+DISCLAIMER_USER = (
+    "This report was generated from user-provided engineering deliverables. "
+    "SingleLineIQ performs automated document consistency review only."
 )
 
 LIMITATIONS = (
@@ -16,7 +21,9 @@ def generate_markdown_report(
     nodes: list[TopologyNode],
     deterministic: list[ValidationIssue],
     sld_issues: list[ValidationIssue],
-    explanations: list[dict] | None = None
+    explanations: list[dict] | None = None,
+    input_filenames: dict | None = None,
+    is_demo: bool = False
 ) -> str:
     lines = []
     
@@ -24,8 +31,9 @@ def generate_markdown_report(
     lines.append("# SingleLineIQ Engineering Review Report")
     lines.append("")
     
-    # 2. Synthetic Data Disclaimer
-    lines.append(f"> {DISCLAIMER}")
+    # 2. Disclaimer (conditional)
+    disclaimer = DISCLAIMER_DEMO if is_demo else DISCLAIMER_USER
+    lines.append(f"> {disclaimer}")
     lines.append("")
     
     # 3. Executive Summary
@@ -39,11 +47,13 @@ def generate_markdown_report(
     lines.append("")
     
     # 4. Input Files Reviewed
+    fnames = input_filenames or {}
+    consumer_fname = fnames.get("consumer_list", "N/A")
+    sld_fname = fnames.get("sld_pdf", "N/A")
     lines.append("## 2. Input Files Reviewed")
     lines.append("")
-    lines.append("- **Full-Hierarchy Consumer List**: `SingleLineIQ_Consumer_List_v15_full_hierarchy.csv`")
-    lines.append("- **Design Criteria**: `SingleLineIQ_Design_Criteria_v15_full_hierarchy.csv`")
-    lines.append("- **Visual Reference**: `SingleLineDiagram.pdf`")
+    lines.append(f"- **Consumer List**: `{consumer_fname}`")
+    lines.append(f"- **Single-Line Diagram**: `{sld_fname}`")
     lines.append("")
     
     # 5. Topology Graph Summary

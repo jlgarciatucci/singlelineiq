@@ -2,9 +2,14 @@ from __future__ import annotations
 from fpdf import FPDF
 from app.schemas import TopologyNode, ValidationIssue
 
-DISCLAIMER = (
+DISCLAIMER_DEMO = (
     "This report was generated from synthetic anonymized data for demonstration purposes only. "
     "It is not based on a real plant, project, client, or confidential engineering deliverable."
+)
+
+DISCLAIMER_USER = (
+    "This report was generated from user-provided engineering deliverables. "
+    "SingleLineIQ performs automated document consistency review only."
 )
 
 LIMITATIONS = (
@@ -46,7 +51,9 @@ def generate_enriched_pdf_report(
     nodes: list[TopologyNode],
     deterministic: list[ValidationIssue],
     sld_issues: list[ValidationIssue],
-    explanations: list[dict]
+    explanations: list[dict],
+    input_filenames: dict | None = None,
+    is_demo: bool = False
 ) -> bytes:
     pdf = EnrichedReportPDF()
     pdf.alias_nb_pages()
@@ -80,9 +87,10 @@ def generate_enriched_pdf_report(
     pdf.ln(6)
     
     # Disclaimer Text
+    disclaimer = DISCLAIMER_DEMO if is_demo else DISCLAIMER_USER
     pdf.set_font("helvetica", "I", 9)
     pdf.set_text_color(180, 50, 50)
-    pdf.multi_cell(0, 5, DISCLAIMER)
+    pdf.multi_cell(0, 5, disclaimer)
     pdf.ln(4)
     
     # 2. Connected Load Distribution

@@ -4,7 +4,7 @@ export default function Home() {
     <span className="badge">Agentic Electrical Single-Line Reviewer</span>
     <h1 className="title">SingleLineIQ</h1>
     <p className="subtitle">An agentic electrical single-line reviewer that infers topology from a full-hierarchy consumer list and cross-checks it against the SLD PDF.</p>
-    <p className="muted">All included data is synthetic and anonymized. The tool performs document consistency review, not power-system studies.</p>
-    <Link className="button" href="/dashboard">Run Synthetic Demo Review</Link>
+    <p className="muted">Upload your Consumer List and Single-Line Diagram to run an automated document consistency review.</p>
+    <Link className="button" href="/dashboard">Start Review →</Link>
   </main>;
 }

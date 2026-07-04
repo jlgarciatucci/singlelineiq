@@ -1,0 +1,10 @@
+ISSUE_ID,ISSUE_TYPE,SEVERITY,REFERENCE_TAG,EXPECTED_DETECTION
+I-001,OVERLOADED_PANEL,critical,KPL2-B20-420-LV02-MCC03,Downstream load exceeds panel capacity.
+I-002,OVERLOADED_SWITCHBOARD,high,KPL2-B20-420-LV02-SWBD02,Downstream load exceeds switchboard capacity.
+I-003,DUPLICATE_ITEM_TAG,high,KPL2-B20-420-MX099,Same final load tag appears more than once.
+I-004,MISSING_RATED_POWER,medium,KPL2-C30-430-FN004,Final load row has missing rated power.
+I-005,INVALID_PARENT,critical,KPL2-Z90-999-TR99,Parent item tag does not exist in the consumer hierarchy.
+I-006,HIGH_VSD_SHARE,medium,KPL2-A10-410-LV01-MCC01,Panel has high share of VSD final loads.
+I-007,MISSING_IN_SLD,high,KPL2-C30-430-LV03-MCC06,Asset exists in consumer list but is absent from visual SLD.
+I-008,SLD_ONLY_ASSET,medium,KPL2-X40-440-LV04-MCC09,Asset appears in SLD but not in consumer list.
+I-009,SLD_PARENT_MISMATCH,high,KPL2-B20-420-LV02-MCC04,Consumer list parent differs from visual SLD parent.

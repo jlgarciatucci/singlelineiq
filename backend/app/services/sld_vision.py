@@ -56,13 +56,15 @@ def analyze_sld_pdf_with_gemini(pdf_path: str | Path) -> list[SldAsset]:
         ))
     return assets
 
-def extract_sld_assets() -> list[SldAsset]:
+def extract_sld_assets(sld_pdf_path: str | Path | None = None, sld_extract_path: str | Path | None = None) -> list[SldAsset]:
     from app import config
+    pdf_path = Path(sld_pdf_path) if sld_pdf_path else config.SLD_PDF_FILE
+    extract_path = Path(sld_extract_path) if sld_extract_path else config.SLD_EXTRACT_FILE
     if config.USE_GEMINI and config.GOOGLE_API_KEY:
         try:
-            return analyze_sld_pdf_with_gemini(config.SLD_PDF_FILE)
+            return analyze_sld_pdf_with_gemini(pdf_path)
         except Exception as e:
             print(f"Gemini visual extraction failed: {e}. Falling back to demo CSV.")
-            return load_demo_sld_extract(config.SLD_EXTRACT_FILE)
+            return load_demo_sld_extract(extract_path)
     else:
-        return load_demo_sld_extract(config.SLD_EXTRACT_FILE)
+        return load_demo_sld_extract(extract_path)
